@@ -1,0 +1,50 @@
+<?php
+require_once __DIR__ . '/../src/bootstrap.php';
+$action = $argv[1] ?? '';
+if ($action === 'list') {
+    $tokens = $redisClient->listSessionTokens();
+    echo "sessions: " . count($tokens) . PHP_EOL;
+    foreach ($tokens as $token) {
+        $data = $redisClient->getSession($token);
+        $line = $token;
+        if (is_array($data)) {
+            $u = $data['username'] ?? '';
+            $r = $data['role'] ?? '';
+            $i = $data['ip'] ?? '';
+            $line .= " | $u | $r | $i";
+        }
+        echo $line . PHP_EOL;
+    }
+    exit(0);
+}
+if ($action === 'clear') {
+    $deleted = $redisClient->deleteAllSessions();
+    echo "cleared: $deleted" . PHP_EOL;
+    exit(0);
+}
+if ($action === 'locks') {
+    $threshold = (int)($authConfig['max_attempts'] ?? 3);
+    $entries = $redisClient->listAttemptEntries();
+    $filtered = array_values(array_filter($entries, function($e) use ($threshold) { return ($e['attempts'] ?? 0) >= $threshold; }));
+    echo "locks: " . count($filtered) . PHP_EOL;
+    foreach ($filtered as $e) {
+        echo $e['username'] . " | attempts: " . $e['attempts'] . " | ttl: " . $e['ttl'] . PHP_EOL;
+    }
+    exit(0);
+}
+if ($action === 'unlock-all') {
+    $threshold = (int)($authConfig['max_attempts'] ?? 3);
+    $entries = $redisClient->listAttemptEntries();
+    $count = 0;
+    foreach ($entries as $e) {
+        if (($e['attempts'] ?? 0) >= $threshold) {
+            $redisClient->resetLoginAttempts($e['username']);
+            $count++;
+        }
+    }
+    echo "unlocked: $count" . PHP_EOL;
+    exit(0);
+}
+echo "usage: php bin/cleanup_sessions [list|clear|locks|unlock-all]" . PHP_EOL;
+exit(1);
+
