@@ -1,0 +1,10 @@
+#!/usr/bin/env php
+<?php
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Console\Application;
+
+$app = new Application();
+$exitCode = $app->run($argv);
+exit($exitCode);
+
