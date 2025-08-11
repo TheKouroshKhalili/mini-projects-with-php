@@ -1,0 +1,17 @@
+{
+  "name": "order/cli",
+  "description": "Order CLI",
+  "type": "project",
+  "require": {
+    "ext-pdo": "*",
+    "ext-pdo_sqlite": "*",
+    "ext-redis": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}
+
+

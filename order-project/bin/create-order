@@ -1,0 +1,58 @@
+#!/usr/bin/env php
+<?php
+
+$autoload = __DIR__ . '/../vendor/autoload.php';
+if (file_exists($autoload)) {
+    require $autoload;
+} else {
+    spl_autoload_register(function ($class) {
+        if (strpos($class, 'App\\') !== 0) {
+            return;
+        }
+        $relative = str_replace('App\\', '', $class);
+        $path = __DIR__ . '/../src/' . str_replace('\\', DIRECTORY_SEPARATOR, $relative) . '.php';
+        if (file_exists($path)) {
+            require $path;
+        }
+    });
+}
+
+use App\CreateOrderService;
+use App\Order;
+use App\Services\DatabaseService;
+use App\Services\FileLogger;
+use App\Services\RedisService;
+
+if ($argc < 3) {
+    fwrite(STDERR, "Usage: php bin/create-order \"<customerName>\" <amount>\n");
+    exit(1);
+}
+
+$name = (string)$argv[1];
+$amount = (float)$argv[2];
+
+if ($name === '' || !is_numeric($argv[2])) {
+    fwrite(STDERR, "Invalid arguments\n");
+    exit(1);
+}
+
+$baseDir = dirname(__DIR__);
+$dbPath = $baseDir . '/var/database/orders.sqlite';
+$logPath = $baseDir . '/var/logs/orders.log';
+
+$pdo = new PDO('sqlite:' . $dbPath);
+$db = new DatabaseService($pdo);
+
+$redis = new Redis();
+$redis->connect('127.0.0.1', 6379, 1.5);
+$redisService = new RedisService($redis);
+
+$logger = new FileLogger($logPath);
+
+$service = new CreateOrderService($db, $redisService, $logger);
+$order = new Order($name, $amount);
+$service->execute($order);
+
+echo "✅ Order for {$name} with amount {$amount} created successfully!\n";
+
+
